@@ -797,16 +797,22 @@ addEventListener('keydown',e=>{if(!['n','p'].includes(e.key))return;
   window.__presence={set,change,reset};
   const pills=[...document.querySelectorAll('.presence[data-from]')].filter(p=>!p.closest('#finale'));
   pills.forEach(reset);
-  const io=new IntersectionObserver(es=>es.forEach(e=>{const el=e.target;
-    if(e.intersectionRatio>=0.6){if(!el._armed){el._armed=1;clearTimeout(el._t1);el._t1=setTimeout(()=>change(el,el.dataset.to),rm?0:650)}}
-    else if(!e.isIntersecting){el._armed=0;reset(el)}}),{rootMargin:'0px 0px -15% 0px',threshold:[0,0.6]});
-  pills.forEach(p=>io.observe(p));
-  // finale: Available -> Offline, and back again if the reader scrolls up
-  const f=document.getElementById('finale');if(!f)return;const fp=f.querySelector('.presence');reset(fp);fp.classList.add('live');
-  const fo=new IntersectionObserver(es=>{const e=es[0];
-    if(e.intersectionRatio>=0.6){if(!f._armed){f._armed=1;clearTimeout(f._t);f._t=setTimeout(()=>{fp.classList.remove('live');change(fp,'offline',()=>f.classList.add('off'))},rm?0:1500)}}
-    else if(!e.isIntersecting){f._armed=0;clearTimeout(f._t);f.classList.remove('off');reset(fp);fp.classList.add('live')}},{rootMargin:'0px 0px -20% 0px',threshold:[0,0.6]});
-  fo.observe(fp);
+  const f=document.getElementById('finale'); const fp=f?f.querySelector('.presence'):null;
+  if(fp){reset(fp);fp.classList.add('live')}
+  // position check on every scroll frame: reliable on any device and any scroll speed
+  const inBand=r=>r.bottom>0&&r.top<innerHeight&&r.top>=innerHeight*0.06&&r.bottom<=innerHeight*0.9;
+  const gone=r=>r.bottom<=0||r.top>=innerHeight;
+  const tick=()=>{
+    pills.forEach(el=>{const r=el.getBoundingClientRect();
+      if(inBand(r)){if(!el._armed){el._armed=1;clearTimeout(el._t1);el._t1=setTimeout(()=>change(el,el.dataset.to),rm?0:450)}}
+      else if(gone(r)&&el._armed){el._armed=0;reset(el)}});
+    if(fp){const r=fp.getBoundingClientRect();
+      if(inBand(r)){if(!f._armed){f._armed=1;clearTimeout(f._t);f._t=setTimeout(()=>{fp.classList.remove('live');change(fp,'offline',()=>f.classList.add('off'))},rm?0:1500)}}
+      else if(gone(r)&&f._armed){f._armed=0;clearTimeout(f._t);f.classList.remove('off');reset(fp);fp.classList.add('live')}}
+  };
+  let q=0;const onScroll=()=>{if(q)return;q=1;requestAnimationFrame(()=>{q=0;tick()})};
+  addEventListener('scroll',onScroll,{passive:true});addEventListener('resize',onScroll);
+  setInterval(tick,400);tick();
 })();
 // ---- for the curious ----
 console.log("%cIf you're inspecting this page, you're definitely from IT.","font:600 15px Georgia,serif;color:#7b2d26");
